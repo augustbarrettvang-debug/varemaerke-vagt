@@ -1,0 +1,7 @@
+{
+  "name": "varemaerke-vagt",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Kopivare-scanner: finder mulige varemærkekrænkelser online og laver en rapport med AI-vurdering.",
+  "engines": { "node": ">=18" }
+}
