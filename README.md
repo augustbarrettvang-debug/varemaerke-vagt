@@ -7,9 +7,9 @@ værktøjet **søger nettet** for mulige kopivarer, scorer hvert fund (ægte / u
 ## 🚀 Deploy din egen kopi (til et firma)
 
 Hvert firma kører sin egen kopi med sin egen gratis søge-nøgle → ingen delt grænse. Send dem `DEPLOY.md`
-og denne knap (udskift `DIT-GITHUB-BRUGERNAVN` når repo'et er lagt på GitHub):
+og denne knap:
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/DIT-GITHUB-BRUGERNAVN/varemaerke-vagt&env=BRAVE_API_KEY&envDescription=Gratis%20Brave%20Search%20token&envLink=https://brave.com/search/api/)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/augustbarrettvang-debug/varemaerke-vagt&env=BRAVE_API_KEY&envDescription=Gratis%20Brave%20Search%20token&envLink=https://brave.com/search/api/)
 
 Firmaet klikker → logger ind på Vercel → indsætter sin egen gratis `BRAVE_API_KEY` → har sit eget link på ~1 min.
 Se den korte firma-vejledning i **[DEPLOY.md](DEPLOY.md)**.
