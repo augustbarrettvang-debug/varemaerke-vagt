@@ -86,8 +86,10 @@ Alternativt i browseren: **Vercel → projekt → Settings → Environment Varia
 Send `https://dit-projekt.vercel.app` til klienten. De skriver deres mærke ind og får rapporten med antal
 kopier + muligt tabt omsætning. Skriv evt. en **normalpris** i feltet for et præcist omsætnings-estimat.
 
-> **Uden nøgle** viser siden en besked om at sætte en gratis nøgle op (server-side scraping virker ikke fra
-> Vercel — søgemaskinerne blokerer cloud-IP'er, derfor den gratis søge-nøgle). Alt koster stadig 0 kr på gratis niveau.
+> **Uden nøgle** kører værktøjet i **gratis DEMO-tilstand**: det viser en realistisk eksempel-rapport
+> (tydeligt mærket "DEMO · EKSEMPELDATA") så man straks ser hvordan det virker. Tilføj en gratis søge-nøgle
+> for at søge det rigtige web (server-side scraping virker ikke fra Vercel — søgemaskinerne blokerer
+> cloud-IP'er, derfor den gratis søge-nøgle). Alt koster 0 kr på gratis niveau — både demo og live.
 
 ---
 

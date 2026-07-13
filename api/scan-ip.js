@@ -188,6 +188,67 @@ const CACHE = new Map(); const CACHE_TTL = 6*60*60*1000;
 function cacheGet(k){ const v=CACHE.get(k); if(v && Date.now()-v.t < CACHE_TTL) return v.data; if(v) CACHE.delete(k); return null; }
 function cacheSet(k,data){ CACHE.set(k,{t:Date.now(),data}); }
 
+// Scorer + aggregerer en liste af fund til den færdige rapport. Bruges af BÅDE live- og demo-sporet.
+function buildReport(rawListings, { brand, type, ref, provider, demo }){
+  const tokens = brandTokens(brand);
+  let listings = rawListings.slice();
+  listings.forEach(l=>{ const v=scoreListing(l, ref, tokens); l.prob=v.prob; l.verdict=v.verdict; l.reasons=v.reasons; l.ipType=v.ipType; l.region=regionOf(l.platform); });
+  listings.sort((a,b)=>b.prob-a.prob);
+  listings = listings.slice(0, 60);
+
+  const infr = listings.filter(l=>l.verdict==="KRÆNKELSE").length;
+  const unc  = listings.filter(l=>l.verdict==="USIKKER").length;
+  const legal= listings.filter(l=>l.verdict==="LOVLIG").length;
+  const infringing = infr + unc;
+
+  const suspect = listings.filter(l=>l.verdict!=="LOVLIG");
+  const byType = {
+    varemaerke: suspect.filter(l=>l.ipType==="VAREMÆRKE"||l.ipType==="BEGGE").length,
+    ophavsret:  suspect.filter(l=>l.ipType==="OPHAVSRET"||l.ipType==="BEGGE").length,
+  };
+
+  const platMap = {}; listings.forEach(l=>{ const p=l.platform||"ukendt"; platMap[p]=(platMap[p]||0)+1; });
+  const platforms = Object.entries(platMap).map(([name,count])=>({name,count})).sort((a,b)=>b.count-a.count);
+  const undercuts = listings.filter(l=>ref&&l.extracted_price).map(l=>1-l.extracted_price/ref).filter(x=>x>0);
+  const avgUndercut = undercuts.length ? Math.round(undercuts.reduce((a,b)=>a+b,0)/undercuts.length*100) : null;
+  const lr = lostRange(infringing, ref);
+
+  return {
+    brand, type, provider: provider||"demo", demo:!!demo, empty:false, scannedAt:new Date().toISOString(),
+    refPrice:ref, avgUndercut, infringing, byType,
+    lostRevenueLow:lr.low, lostRevenueHigh:lr.high, unitsLow:UNITS_LOW, unitsHigh:UNITS_HIGH,
+    counts:{ total:listings.length, infringing:infr, uncertain:unc, legal },
+    platforms,
+    listings: listings.map(l=>({ title:l.title, price:l.price, extracted_price:l.extracted_price,
+      source:l.platform, link:l.link, thumbnail:l.thumbnail, platform:l.platform,
+      region:l.region, verdict:l.verdict, ipType:l.ipType, prob:l.prob, reasons:l.reasons }))
+  };
+}
+
+// Realistiske EKSEMPEL-fund til demo-tilstand (ingen søge-nøgle). Bruger det indtastede navn,
+// så rapporten ser skræddersyet ud. Tydeligt mærket "DEMO" i frontenden — ikke rigtige resultater.
+function demoListings(brand, type){
+  const b = brand;
+  const tm = [ // varemærke-signaler
+    { title:`${b} replica 1:1 – AAA topkvalitet`, platform:"lux-copy.top", extracted_price:349, price:"349 kr" },
+    { title:`Billig ${b} kopi · outlet fri fragt`, platform:"brandbargain.shop", extracted_price:279, price:"279 kr" },
+    { title:`${b} fake batch – factory direkte`, platform:"aaa-store.ru", extracted_price:199, price:"199 kr" },
+  ];
+  const cr = [ // ophavsret-signaler
+    { title:`${b} reproduktion (inspired by design classic)`, platform:"designrepro.store", extracted_price:590, price:"590 kr" },
+    { title:`${b} homage lampe – håndlavet efterligning`, platform:"nordic-repro.online", extracted_price:690, price:"690 kr" },
+    { title:`${b} print / plakat af originalen`, platform:"posterkopi.xyz", extracted_price:149, price:"149 kr" },
+    { title:`${b} i stil af – reproduktion`, platform:"stilkopi.de", extracted_price:820, price:"820 kr" },
+  ];
+  const legit = [ // skal score LOVLIG (autoriseret forhandler)
+    { title:`${b} – original hos autoriseret forhandler`, platform:"designforhandler.dk", extracted_price:1799, price:"1.799 kr" },
+  ];
+  let picks = type==="varemaerke" ? tm.concat(legit)
+            : type==="ophavsret"  ? cr.concat(legit)
+            : tm.concat(cr, legit);
+  return picks.map(x=>Object.assign({ snippet:"", link:"https://"+x.platform+"/produkt", thumbnail:null }, x));
+}
+
 module.exports = async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   const brand = ((req.query.brand)||"").toString().trim();
@@ -204,6 +265,17 @@ module.exports = async (req, res) => {
   const cached = cacheGet(cacheKey);
   if(cached){ res.status(200).json(Object.assign({}, cached, { cached:true })); return; }
 
+  // Ingen søge-nøgle → gratis DEMO-tilstand med realistiske eksempel-fund, så værktøjet
+  // virker og viser værdi med det samme. Tydeligt mærket "DEMO" i frontenden.
+  if(!provider){
+    const ref = msrp || 1799;
+    const report = buildReport(demoListings(brand, type), { brand, type, ref, provider:null, demo:true });
+    report.message = "DEMO — eksempeldata (ingen søge-nøgle sat op). Tilføj en GRATIS nøgle i Vercel (BRAVE_API_KEY, eller GOOGLE_CSE_KEY + GOOGLE_CSE_CX) for at søge det rigtige web. Dine klienter rører aldrig nøglen.";
+    cacheSet(cacheKey, report);
+    res.status(200).json(report);
+    return;
+  }
+
   const excl = EXCLUDE_SITES.map(s=>"-site:"+s).join(" ");
   const N = Math.min(6, Math.max(1, parseInt(process.env.SCAN_QUERIES,10)||3));
   const queries = buildQueries(brand, excl, type).slice(0, N);
@@ -218,49 +290,15 @@ module.exports = async (req, res) => {
     listings = listings.filter(l=>{ const k=(l.platform+"|"+(l.title||"").slice(0,50)).toLowerCase(); if(seen.has(k)) return false; seen.add(k); return true; });
 
     if(listings.length === 0){
-      const msg = provider
-        ? "Ingen uafhængige kopi-shops fundet lige nu. Prøv igen eller med model-/værknavn (fx 'Flowerpot VP7')."
-        : "Ingen søge-nøgle er sat op endnu. Tilføj en gratis nøgle i Vercel (BRAVE_API_KEY, eller GOOGLE_CSE_KEY + GOOGLE_CSE_CX), så søger værktøjet rigtigt. Dine klienter rører aldrig nøglen.";
-      res.status(200).json({ brand, type, empty:true, provider, message:msg });
+      res.status(200).json({ brand, type, empty:true, provider,
+        message:"Ingen uafhængige kopi-shops fundet lige nu. Prøv igen eller med model-/værknavn (fx 'Flowerpot VP7')." });
       return;
     }
 
-    const tokens = brandTokens(brand);
     const priced = listings.map(l=>l.extracted_price).filter(Boolean).sort((a,b)=>a-b);
     const ref = msrp || (priced.length ? priced[Math.floor(priced.length/2)] : null);
 
-    listings.forEach(l=>{ const v=scoreListing(l, ref, tokens); l.prob=v.prob; l.verdict=v.verdict; l.reasons=v.reasons; l.ipType=v.ipType; l.region=regionOf(l.platform); });
-    listings.sort((a,b)=>b.prob-a.prob);
-    listings = listings.slice(0, 60);
-
-    const infr = listings.filter(l=>l.verdict==="KRÆNKELSE").length;
-    const unc  = listings.filter(l=>l.verdict==="USIKKER").length;
-    const legal= listings.filter(l=>l.verdict==="LOVLIG").length;
-    const infringing = infr + unc;
-
-    // Fordeling på krænkelsestype (kun for de faktisk mistænkte fund).
-    const suspect = listings.filter(l=>l.verdict!=="LOVLIG");
-    const byType = {
-      varemaerke: suspect.filter(l=>l.ipType==="VAREMÆRKE"||l.ipType==="BEGGE").length,
-      ophavsret:  suspect.filter(l=>l.ipType==="OPHAVSRET"||l.ipType==="BEGGE").length,
-    };
-
-    const platMap = {}; listings.forEach(l=>{ const p=l.platform||"ukendt"; platMap[p]=(platMap[p]||0)+1; });
-    const platforms = Object.entries(platMap).map(([name,count])=>({name,count})).sort((a,b)=>b.count-a.count);
-    const undercuts = listings.filter(l=>ref&&l.extracted_price).map(l=>1-l.extracted_price/ref).filter(x=>x>0);
-    const avgUndercut = undercuts.length ? Math.round(undercuts.reduce((a,b)=>a+b,0)/undercuts.length*100) : null;
-    const lr = lostRange(infringing, ref);
-
-    const payload = {
-      brand, type, provider: provider||"nøglefri", demo:false, empty:false, scannedAt:new Date().toISOString(),
-      refPrice:ref, avgUndercut, infringing, byType,
-      lostRevenueLow:lr.low, lostRevenueHigh:lr.high, unitsLow:UNITS_LOW, unitsHigh:UNITS_HIGH,
-      counts:{ total:listings.length, infringing:infr, uncertain:unc, legal },
-      platforms,
-      listings: listings.map(l=>({ title:l.title, price:l.price, extracted_price:l.extracted_price,
-        source:l.platform, link:l.link, thumbnail:l.thumbnail, platform:l.platform,
-        region:l.region, verdict:l.verdict, ipType:l.ipType, prob:l.prob, reasons:l.reasons }))
-    };
+    const payload = buildReport(listings, { brand, type, ref, provider, demo:false });
     cacheSet(cacheKey, payload);
     res.status(200).json(payload);
   } catch(e){

@@ -215,8 +215,13 @@ function render(d){
   const typeLabel=d.type==="varemaerke"?"varemærke":d.type==="ophavsret"?"ophavsret":"varemærke &amp; ophavsret";
   const tag=document.getElementById("modeTag");
   tag.style.display="inline-block";
-  tag.className="live";tag.textContent="LIVE-SØGNING"+(d.provider&&d.provider!=="nøglefri"?" · "+esc(d.provider):"");
-  showNote("live","<strong>Live-søgning ("+typeLabel+").</strong> Fundene herunder er rigtige resultater fra det åbne web. Klienter/modtagere skriver bare navnet ind — de rører aldrig nogen nøgle. Det er en automatisk screening; bekræft altid ægthed og krænkelse før juridiske skridt.");
+  if(d.demo){
+    tag.className="demo";tag.textContent="DEMO · EKSEMPELDATA";
+    showNote("demo","<strong>Demo ("+typeLabel+").</strong> "+esc(d.message||"Dette er realistiske eksempeldata — ikke rigtige fund.")+" ");
+  } else {
+    tag.className="live";tag.textContent="LIVE-SØGNING"+(d.provider&&d.provider!=="nøglefri"&&d.provider!=="demo"?" · "+esc(d.provider):"");
+    showNote("live","<strong>Live-søgning ("+typeLabel+").</strong> Fundene herunder er rigtige resultater fra det åbne web. Klienter/modtagere skriver bare navnet ind — de rører aldrig nogen nøgle. Det er en automatisk screening; bekræft altid ægthed og krænkelse før juridiske skridt.");
+  }
 
   const total=c.total, infr=c.infringing, unc=c.uncertain, legal=c.legal;
   const infrPct=total?Math.round(infr/total*100):0, uncPct=total?Math.round(unc/total*100):0, legalPct=Math.max(0,100-infrPct-uncPct);
@@ -237,7 +242,7 @@ function render(d){
 
   document.getElementById("dash").style.display="block";
   document.getElementById("foot").style.display="block";
-  document.getElementById("foot").innerHTML = "Nøglefri live-søgning på det åbne web · automatisk screening, ikke juridisk bevis · "+new Date(d.scannedAt).toLocaleString("da-DK");
+  document.getElementById("foot").innerHTML = (d.demo?"DEMO · eksempeldata (tilføj en gratis søge-nøgle for live-resultater)":"Live-søgning på det åbne web")+" · automatisk screening, ikke juridisk bevis · "+new Date(d.scannedAt).toLocaleString("da-DK");
 
   const splitSub = (d.type==="begge")
     ? `${fmt(bt.varemaerke)} varemærke · ${fmt(bt.ophavsret)} ophavsret`
