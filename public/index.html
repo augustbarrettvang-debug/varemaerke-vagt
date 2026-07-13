@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Varemærke-Vagt · Kopivare-scanning</title>
+<title>IP-Vagt · Varemærke- &amp; ophavsrets-scanning</title>
 <style>
   :root{
     --bg:#0a0f1c;--bg2:#0f172a;--panel:#111a2e;--panel2:#16223c;--panel3:#1b2a48;
@@ -94,8 +94,18 @@
   .lm{color:var(--faint);font-size:11.5px}
   .price-bad{color:var(--bad);font-weight:700}
   .badge{font-size:11px;font-weight:800;padding:4px 9px;border-radius:7px;white-space:nowrap}
-  .badge.FALSK{background:var(--bad-bg);color:var(--bad)}.badge.USIKKER{background:var(--warn-bg);color:var(--warn)}.badge.ÆGTE{background:var(--ok-bg);color:var(--ok)}
+  .badge.KRÆNKELSE{background:var(--bad-bg);color:var(--bad)}.badge.USIKKER{background:var(--warn-bg);color:var(--warn)}.badge.LOVLIG{background:var(--ok-bg);color:var(--ok)}
+  .iptype{font-size:10.5px;font-weight:800;padding:3px 8px;border-radius:6px;white-space:nowrap;letter-spacing:.3px;border:1px solid transparent}
+  .iptype.VAREMÆRKE{background:rgba(59,130,246,.14);color:var(--brand2);border-color:rgba(59,130,246,.35)}
+  .iptype.OPHAVSRET{background:rgba(168,85,247,.14);color:#c084fc;border-color:rgba(168,85,247,.4)}
+  .iptype.BEGGE{background:rgba(245,158,11,.14);color:var(--warn);border-color:rgba(245,158,11,.4)}
   .reasons{color:var(--faint);font-size:11.5px;margin-top:3px}
+
+  .segbar{display:inline-flex;gap:4px;background:var(--bg2);border:1px solid var(--line2);border-radius:12px;padding:4px;margin:0 auto 16px}
+  .segbar button{appearance:none;border:none;cursor:pointer;font-family:inherit;font-weight:700;font-size:13.5px;
+    padding:9px 16px;border-radius:9px;color:var(--muted);background:transparent;transition:.15s;white-space:nowrap}
+  .segbar button.active{background:linear-gradient(145deg,var(--brand),#1d4ed8);color:#fff;box-shadow:0 4px 12px rgba(59,130,246,.35)}
+  .segbar button:hover:not(.active){color:var(--txt)}
 
   .legal{background:linear-gradient(160deg,#1a1220,#161d33);border:1px solid #3a2740;border-radius:16px;padding:26px;box-shadow:var(--shadow);margin-top:8px}
   @media (prefers-color-scheme:light){.legal{background:linear-gradient(160deg,#fff5f6,#f3f7ff);border-color:#f0d9de}}
@@ -123,15 +133,20 @@
 <div class="wrap">
   <div class="top">
     <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></div>
-    <div class="bname"><h1>Varemærke-Vagt</h1><span>Kopivare-scanning &amp; brand protection</span></div>
+    <div class="bname"><h1>IP-Vagt</h1><span>Varemærke- &amp; ophavsrets-scanning · brand protection</span></div>
     <div id="modeTag"></div>
   </div>
 
   <div class="search-card" id="searchCard">
-    <h2>Find kopivarer af dit varemærke online</h2>
-    <p>Skriv dit varemærke — evt. med model. Værktøjet <strong>søger det åbne web</strong> efter skjulte, uafhængige webshops der sælger kopier, filtrerer de store markedspladser fra, og laver en rapport med <strong>antal fund</strong> og <strong>muligt tabt omsætning</strong>. Klienter skriver bare mærket ind — de rører aldrig nogen nøgle.</p>
+    <h2>Find falske varemærke- og ophavsretsprodukter online</h2>
+    <p>Skriv dit <strong>varemærke</strong> eller <strong>designværk</strong> — evt. med model. Værktøjet <strong>søger det åbne web</strong> efter skjulte, uafhængige webshops der sælger kopier, filtrerer de store markedspladser fra, og laver en rapport med <strong>antal fund</strong> og <strong>muligt tabt omsætning</strong>. Klienter skriver bare navnet ind — de rører aldrig nogen nøgle.</p>
+    <div class="segbar" id="typeBar" role="group" aria-label="Krænkelsestype">
+      <button type="button" data-type="begge" class="active">Begge</button>
+      <button type="button" data-type="varemaerke">Varemærke</button>
+      <button type="button" data-type="ophavsret">Ophavsret</button>
+    </div>
     <div class="search-row">
-      <input id="brand" placeholder="Varemærke, fx Flowerpot VP7, &amp;Tradition, Nike…" onkeydown="if(event.key==='Enter')scan()">
+      <input id="brand" placeholder="Varemærke eller værk, fx Flowerpot VP7, PH 5, Nike…" onkeydown="if(event.key==='Enter')scan()">
       <input id="msrp" type="number" placeholder="Normalpris kr (valgfri)" style="max-width:190px" onkeydown="if(event.key==='Enter')scan()">
       <button class="btn" id="scanBtn" onclick="scan()">
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
@@ -152,9 +167,16 @@ function esc(s){return(s||"").replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':
 function fmt(n){return (n==null?"–":Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,"."));}
 function mio(n){return (n/1e6).toLocaleString("da-DK",{minimumFractionDigits:1,maximumFractionDigits:1});}
 
+let SCAN_TYPE="begge";
+document.getElementById("typeBar").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-type]");if(!b)return;
+  SCAN_TYPE=b.dataset.type;
+  document.querySelectorAll("#typeBar button").forEach(x=>x.classList.toggle("active",x===b));
+});
+
 async function scan(){
   const brand=document.getElementById("brand").value.trim();
-  if(!brand){alert("Skriv et varemærke først.");return;}
+  if(!brand){alert("Skriv et varemærke eller værk først.");return;}
   const btn=document.getElementById("scanBtn");btn.disabled=true;
   document.getElementById("dash").style.display="none";
   document.getElementById("note").style.display="none";
@@ -162,11 +184,12 @@ async function scan(){
   const sc=document.getElementById("scan");sc.style.display="block";
   const st=document.getElementById("scanText");
   const msrp=(document.getElementById("msrp").value||"").trim();
-  const steps=[`Søger efter <b>${esc(brand)}</b> på det åbne web…`,`Gennemgår uafhængige webshops…`,`Filtrerer AliExpress, Alibaba, Temu m.fl. fra…`,`Vurderer hvert fund…`,`Samler rapport…`];
+  const scope=SCAN_TYPE==="varemaerke"?"varemærkekrænkelser":SCAN_TYPE==="ophavsret"?"ophavsretskrænkelser":"varemærke- & ophavsretskrænkelser";
+  const steps=[`Søger efter <b>${esc(brand)}</b> på det åbne web…`,`Gennemgår uafhængige webshops…`,`Filtrerer AliExpress, Alibaba, Temu m.fl. fra…`,`Vurderer hvert fund for ${scope}…`,`Samler rapport…`];
   let i=0;st.innerHTML=steps[0];
   const iv=setInterval(()=>{i=(i+1)%steps.length;st.innerHTML=steps[i];},900);
   try{
-    const r=await fetch("/api/scan?brand="+encodeURIComponent(brand)+(msrp?"&msrp="+encodeURIComponent(msrp):""));
+    const r=await fetch("/api/scan-ip?type="+encodeURIComponent(SCAN_TYPE)+"&brand="+encodeURIComponent(brand)+(msrp?"&msrp="+encodeURIComponent(msrp):""));
     const data=await r.json();
     clearInterval(iv);sc.style.display="none";btn.disabled=false;
     if(data.error){showNote("err",data.error);return;}
@@ -188,23 +211,27 @@ function showNote(type,msg){
 
 function render(d){
   const c=d.counts;
+  const bt=d.byType||{varemaerke:0,ophavsret:0};
+  const typeLabel=d.type==="varemaerke"?"varemærke":d.type==="ophavsret"?"ophavsret":"varemærke &amp; ophavsret";
   const tag=document.getElementById("modeTag");
   tag.style.display="inline-block";
   tag.className="live";tag.textContent="LIVE-SØGNING"+(d.provider&&d.provider!=="nøglefri"?" · "+esc(d.provider):"");
-  showNote("live","<strong>Live-søgning.</strong> Fundene herunder er rigtige resultater fra det åbne web. Klienter/modtagere skriver bare mærket ind — de rører aldrig nogen nøgle. Det er en automatisk screening; bekræft altid ægthed før juridiske skridt.");
+  showNote("live","<strong>Live-søgning ("+typeLabel+").</strong> Fundene herunder er rigtige resultater fra det åbne web. Klienter/modtagere skriver bare navnet ind — de rører aldrig nogen nøgle. Det er en automatisk screening; bekræft altid ægthed og krænkelse før juridiske skridt.");
 
-  const total=c.total, fake=c.fake, unc=c.uncertain, real=c.real;
-  const fakePct=total?Math.round(fake/total*100):0, uncPct=total?Math.round(unc/total*100):0, realPct=Math.max(0,100-fakePct-uncPct);
+  const total=c.total, infr=c.infringing, unc=c.uncertain, legal=c.legal;
+  const infrPct=total?Math.round(infr/total*100):0, uncPct=total?Math.round(unc/total*100):0, legalPct=Math.max(0,100-infrPct-uncPct);
   const platMax=d.platforms.length?d.platforms[0].count:1;
+  const ipIcon=t=>t==="OPHAVSRET"?"©️":t==="BEGGE"?"⚠️":"®️";
 
   const rows=d.listings.map(l=>`<tr>
     <td><div class="listing">
-      ${l.thumbnail?`<img class="thumb" src="${esc(l.thumbnail)}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'thumb',textContent:'🏷️'}))">`:`<div class="thumb">🏷️</div>`}
+      ${l.thumbnail?`<img class="thumb" src="${esc(l.thumbnail)}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'thumb',textContent:'${ipIcon(l.ipType)}'}))">`:`<div class="thumb">${ipIcon(l.ipType)}</div>`}
       <div><div class="lt"><a href="${esc(l.link)}" target="_blank" rel="noopener noreferrer">${esc(l.title)}</a></div>
       ${l.reasons&&l.reasons.length?`<div class="reasons">${esc(l.reasons.join(" · "))}</div>`:``}</div>
     </div></td>
     <td>${esc(l.platform||"–")}<div class="lm">${esc(l.region||"")}</div></td>
-    <td>${l.price?`<span class="${l.verdict==='FALSK'?'price-bad':''}">${esc(l.price)}</span>`:"–"}</td>
+    <td>${l.ipType?`<span class="iptype ${l.ipType}">${l.ipType}</span>`:"–"}</td>
+    <td>${l.price?`<span class="${l.verdict==='KRÆNKELSE'?'price-bad':''}">${esc(l.price)}</span>`:"–"}</td>
     <td><span class="badge ${l.verdict}">${l.verdict} ${l.prob}%</span></td>
   </tr>`).join("");
 
@@ -212,11 +239,15 @@ function render(d){
   document.getElementById("foot").style.display="block";
   document.getElementById("foot").innerHTML = "Nøglefri live-søgning på det åbne web · automatisk screening, ikke juridisk bevis · "+new Date(d.scannedAt).toLocaleString("da-DK");
 
+  const splitSub = (d.type==="begge")
+    ? `${fmt(bt.varemaerke)} varemærke · ${fmt(bt.ophavsret)} ophavsret`
+    : `${infrPct}% af fundene`;
+
   document.getElementById("dash").innerHTML=`
     <div class="section-title">Overblik · ${esc(d.brand)}</div>
     <div class="kpis">
       <div class="kpi"><div class="n red">${fmt(total)}</div><div class="l">Fund i alt</div><div class="s">annoncer scannet</div></div>
-      <div class="kpi"><div class="n red">${fmt(fake)}</div><div class="l">Sandsynligt falske</div><div class="s">${fakePct}% af fundene</div></div>
+      <div class="kpi"><div class="n red">${fmt(infr)}</div><div class="l">Mulige krænkelser</div><div class="s">${splitSub}</div></div>
       <div class="kpi"><div class="n amber">${d.lostRevenueHigh!=null?mio(d.lostRevenueLow)+"–"+mio(d.lostRevenueHigh)+" mio.":"–"}</div><div class="l">Muligt tabt omsætning/år</div><div class="s">kr · est. ${d.unitsLow}–${d.unitsHigh} kopisalg/shop pr. md</div></div>
       <div class="kpi"><div class="n amber">${d.avgUndercut!=null?d.avgUndercut+"%":"–"}</div><div class="l">Gns. prisunderbud</div><div class="s">under markedsprisen</div></div>
       <div class="kpi"><div class="n blue">${d.platforms.length}</div><div class="l">Platforme</div><div class="s">hvor kopier optræder</div></div>
@@ -228,45 +259,49 @@ function render(d){
         ${d.platforms.slice(0,8).map(p=>`<div class="pbar"><div class="pn">${esc(p.name)}</div><div class="ptrack"><div class="pf" data-w="${Math.round(p.count/platMax*100)}"></div></div><div class="pc">${p.count}</div></div>`).join("")}
       </div>
       <div class="card">
-        <h3>Ægthedsvurdering</h3><p class="cs">Motorens dom over fundene</p>
-        <div class="donut-wrap">${donut(fakePct,uncPct,realPct)}
+        <h3>Krænkelsesvurdering</h3><p class="cs">Motorens dom over fundene</p>
+        <div class="donut-wrap">${donut(infrPct,uncPct,legalPct)}
           <div class="legend">
-            <div><span class="sw" style="background:var(--bad)"></span> ${fakePct}% sandsynligt falske</div>
+            <div><span class="sw" style="background:var(--bad)"></span> ${infrPct}% mulige krænkelser</div>
             <div><span class="sw" style="background:var(--warn)"></span> ${uncPct}% usikre</div>
-            <div><span class="sw" style="background:var(--ok)"></span> ${realPct}% sandsynligt ægte</div>
+            <div><span class="sw" style="background:var(--ok)"></span> ${legalPct}% sandsynligt lovlige</div>
           </div>
         </div>
+        ${d.type==="begge"?`<div class="legend" style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px">
+          <div><span class="sw" style="background:var(--brand2)"></span> ®️ ${fmt(bt.varemaerke)} varemærkekrænkelser</div>
+          <div><span class="sw" style="background:#c084fc"></span> ©️ ${fmt(bt.ophavsret)} ophavsretskrænkelser</div>
+        </div>`:``}
       </div>
     </div>
 
     <div class="section-title">Fundne annoncer (mest mistænkelige først)</div>
     <div class="tbl-wrap"><table>
-      <thead><tr><th>Annonce</th><th>Platform</th><th>Pris</th><th>Vurdering</th></tr></thead>
+      <thead><tr><th>Annonce</th><th>Platform</th><th>Type</th><th>Pris</th><th>Vurdering</th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div>
 
     <div class="section-title">Hvorfor det kræver juridisk handling</div>
     <div class="legal">
       <h3>${esc(d.brand)} taber penge og kontrol — hver dag der går</h3>
-      <p class="ls">Et varemærke er en juridisk eneret. Hvert kopisalg herover er en potentiel krænkelse. Uden aktiv håndhævelse vokser problemet, og retten kan udvandes.</p>
+      <p class="ls">Både et <b>varemærke</b> (varemærkeloven) og et <b>designværk/brugskunst</b> (ophavsretsloven) er juridiske enerettigheder. Hvert kopisalg herover er en potentiel krænkelse. Uden aktiv håndhævelse vokser problemet, og rettighederne kan udvandes.</p>
       <div class="legal-grid">
         <div class="lbox risk"><h4>⚠️ Hvad der er på spil</h4><ul>
           <li><b>Tabt omsætning:</b> hvert kopisalg er et mistet salg og underbyder dine priser.</li>
-          <li><b>Udvanding af varemærket:</b> spredning svækker mærkets særpræg og beskyttelse.</li>
+          <li><b>Udvanding:</b> spredning svækker varemærkets særpræg og værkets eksklusivitet.</li>
           <li><b>Tab af goodwill:</b> ringe kopivarer skader dit omdømme hos kunderne.</li>
           <li><b>Ansvar &amp; sikkerhed:</b> farlige kopier kan lede klager tilbage til jer.</li>
           <li><b>Passivitet:</b> undlader man at håndhæve, kan retten svækkes over tid.</li>
         </ul></div>
         <div class="lbox solve"><h4>⚖️ Hvad en advokat kan gøre</h4><ul>
           <li><b>Påkravsbreve (cease &amp; desist)</b> til sælgere og platforme.</li>
-          <li><b>Takedowns</b> via platformenes brand-programmer (VeRO, Brand Registry m.fl.).</li>
+          <li><b>Takedowns</b> via platformenes rettighedsprogrammer (VeRO, Brand Registry m.fl.).</li>
           <li><b>Toldbeslaglæggelse</b> (AFA-ansøgning) så told standser kopier ved grænsen.</li>
-          <li><b>Fogedforbud &amp; erstatningssag</b> mod systematiske krænkere.</li>
+          <li><b>Fogedforbud &amp; erstatningssag</b> efter varemærke- eller ophavsretsloven.</li>
           <li><b>Løbende overvågning</b> så nye kopier fanges hurtigt.</li>
         </ul></div>
       </div>
       <div class="cta">
-        <div class="ct"><b>${fmt(fake+unc)} mulige krænkelser fundet.</b><span>Jo før håndhævelsen starter, jo mindre spreder de sig — og jo stærkere står varemærket.</span></div>
+        <div class="ct"><b>${fmt(infr+unc)} mulige krænkelser fundet.</b><span>Jo før håndhævelsen starter, jo mindre spreder de sig — og jo stærkere står dine rettigheder.</span></div>
         <button class="btn" onclick="window.print()">🖨️ Gem rapport som PDF</button>
       </div>
     </div>

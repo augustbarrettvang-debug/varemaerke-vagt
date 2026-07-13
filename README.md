@@ -1,8 +1,16 @@
-# Varemærke-Vagt · kopivare-scanner
+# IP-Vagt · varemærke- & ophavsrets-scanner
 
-Et lille webværktøj til brand protection. Man skriver sit **varemærke** ind (fx *Flowerpot VP7*),
-værktøjet **søger nettet** for mulige kopivarer, scorer hvert fund (ægte / usikker / falsk) og viser en
-**rapport** med antal kopier + muligt tabt omsætning — inkl. et afsnit om hvorfor sagen kræver juridisk handling.
+Et lille webværktøj til brand protection. Man skriver sit **varemærke** eller **designværk** ind
+(fx *Flowerpot VP7*, *PH 5*), vælger om der skal søges efter **varemærke-**, **ophavsrets-** eller
+**begge** slags krænkelser, og værktøjet **søger nettet** for mulige kopivarer, scorer hvert fund
+(lovlig / usikker / krænkelse) — med angivelse af om det ligner en **varemærke-** eller
+**ophavsretskrænkelse** — og viser en **rapport** med antal kopier + muligt tabt omsætning, inkl. et
+afsnit om hvorfor sagen kræver juridisk handling.
+
+**To slags kopier, ét værktøj:**
+- **Varemærke** (varemærkeloven): ulovlig brug af mærke/logo/navn — falske mærkevarer, replica-tasker, kopi-sneakers.
+- **Ophavsret** (ophavsretsloven): ulovlig kopiering af et beskyttet værk — designmøbler & brugskunst
+  (Flowerpot, PH-lamper, Arne Jacobsen-stole), kunst, mønstre, tryk, digitalt indhold.
 
 ## 🚀 Deploy din egen kopi (til et firma)
 
@@ -18,11 +26,14 @@ Se den korte firma-vejledning i **[DEPLOY.md](DEPLOY.md)**.
 
 ```
 varemaerke-vagt/
-├─ public/index.html   ← frontend (dashboardet klienten ser)
-├─ api/scan.js         ← backend: kalder søge-API, scorer fund, bygger rapporten
+├─ public/index.html   ← frontend (dashboardet klienten ser, med type-vælger)
+├─ api/scan-ip.js      ← backend (aktiv): scorer fund for BÅDE varemærke og ophavsret
+├─ api/scan.js         ← ældre backend: kun varemærke (bevaret for bagudkompatibilitet)
 ├─ package.json
 └─ vercel.json
 ```
+
+Dashboardet kalder `/api/scan-ip?type=begge|varemaerke|ophavsret&brand=…&msrp=…`.
 
 ---
 
