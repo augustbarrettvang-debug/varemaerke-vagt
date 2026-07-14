@@ -147,7 +147,6 @@
     </div>
     <div class="search-row">
       <input id="brand" placeholder="Varemærke eller værk, fx Flowerpot VP7, PH 5, Nike…" onkeydown="if(event.key==='Enter')scan()">
-      <input id="msrp" type="number" placeholder="Normalpris kr (valgfri)" style="max-width:190px" onkeydown="if(event.key==='Enter')scan()">
       <button class="btn" id="scanBtn" onclick="scan()">
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
         Scan nettet
@@ -183,13 +182,12 @@ async function scan(){
   document.getElementById("foot").style.display="none";
   const sc=document.getElementById("scan");sc.style.display="block";
   const st=document.getElementById("scanText");
-  const msrp=(document.getElementById("msrp").value||"").trim();
   const scope=SCAN_TYPE==="varemaerke"?"varemærkekrænkelser":SCAN_TYPE==="ophavsret"?"ophavsretskrænkelser":"varemærke- & ophavsretskrænkelser";
   const steps=[`Søger efter <b>${esc(brand)}</b> på det åbne web…`,`Gennemgår uafhængige webshops…`,`Filtrerer AliExpress, Alibaba, Temu m.fl. fra…`,`Vurderer hvert fund for ${scope}…`,`Samler rapport…`];
   let i=0;st.innerHTML=steps[0];
   const iv=setInterval(()=>{i=(i+1)%steps.length;st.innerHTML=steps[i];},900);
   try{
-    const r=await fetch("/api/scan-ip?type="+encodeURIComponent(SCAN_TYPE)+"&brand="+encodeURIComponent(brand)+(msrp?"&msrp="+encodeURIComponent(msrp):""));
+    const r=await fetch("/api/scan-ip?type="+encodeURIComponent(SCAN_TYPE)+"&brand="+encodeURIComponent(brand));
     const data=await r.json();
     clearInterval(iv);sc.style.display="none";btn.disabled=false;
     if(data.error){showNote("err",data.error);return;}
