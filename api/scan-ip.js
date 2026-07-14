@@ -114,6 +114,21 @@ async function fetchText(url, headers){
   catch{ return null; } finally{ clearTimeout(t); }
 }
 
+// --- Serper.dev (Google-resultater som JSON — NEMMEST: 2.500 gratis, intet kort, én nøgle). ---
+async function serperSearch(q, key){
+  const ctrl=new AbortController(); const t=setTimeout(()=>ctrl.abort(),9000);
+  try{
+    const r=await fetch("https://google.serper.dev/search",{ method:"POST",
+      headers:{ "X-API-KEY":key, "Content-Type":"application/json" },
+      body:JSON.stringify({ q, gl:"dk", hl:"da", num:15 }), signal:ctrl.signal });
+    if(!r.ok) return [];
+    const j=await r.json();
+    const res=(j && j.organic) || [];
+    return res.map(it=>({ title:decodeEntities(stripTags(it.title||"")), snippet:decodeEntities(stripTags(it.snippet||"")),
+      link:it.link, platform:domainOf(it.link||""), extracted_price:null, price:null, thumbnail:it.imageUrl||null }))
+      .filter(x=>x.title && /^https?:\/\//.test(x.link||""));
+  } catch { return []; } finally { clearTimeout(t); }
+}
 // --- Brave Search API (gratis: 2000/md). Én nøgle. ---
 async function braveSearch(q, key){
   const j = await fetchJSON("https://api.search.brave.com/res/v1/web/search?country=dk&count=15&q="+encodeURIComponent(q),
@@ -150,11 +165,13 @@ async function ddgHtml(q){
 
 function providers(){
   const p=[];
+  if(process.env.SERPER_API_KEY) p.push("Serper");
   if(process.env.BRAVE_API_KEY) p.push("Brave");
   if(process.env.GOOGLE_CSE_KEY && process.env.GOOGLE_CSE_CX) p.push("Google");
   return p;
 }
 async function runOne(provider, q){
+  if(provider==="Serper") return serperSearch(q, process.env.SERPER_API_KEY);
   if(provider==="Brave") return braveSearch(q, process.env.BRAVE_API_KEY);
   if(provider==="Google") return googleSearch(q, process.env.GOOGLE_CSE_KEY, process.env.GOOGLE_CSE_CX);
   return ddgHtml(q); // nøglefri fallback
@@ -270,7 +287,7 @@ module.exports = async (req, res) => {
   if(!provider){
     const ref = msrp || 1799;
     const report = buildReport(demoListings(brand, type), { brand, type, ref, provider:null, demo:true });
-    report.message = "DEMO — eksempeldata (ingen søge-nøgle sat op). Tilføj en GRATIS nøgle i Vercel (BRAVE_API_KEY, eller GOOGLE_CSE_KEY + GOOGLE_CSE_CX) for at søge det rigtige web. Dine klienter rører aldrig nøglen.";
+    report.message = "DEMO — eksempeldata (ingen søge-nøgle sat op). Tilføj en GRATIS nøgle i Vercel for at søge det rigtige web — nemmest er SERPER_API_KEY (2.500 gratis søgninger, intet kort). Alternativt BRAVE_API_KEY eller GOOGLE_CSE_KEY + GOOGLE_CSE_CX. Dine klienter rører aldrig nøglen.";
     cacheSet(cacheKey, report);
     res.status(200).json(report);
     return;

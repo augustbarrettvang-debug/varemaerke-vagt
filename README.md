@@ -22,8 +22,9 @@ og denne knap:
 Firmaet klikker → logger ind på Vercel → har sit eget link på ~1 min (kører i gratis **demo-tilstand** med det samme).
 Bagefter tilføjer man sin egen gratis søge-nøgle under **Settings → Environment Variables** for live-søgning:
 
-- **Google (intet kort):** `GOOGLE_CSE_KEY` + `GOOGLE_CSE_CX` — se opskrift nedenfor. 100 søgninger/dag gratis.
-- **eller Brave:** `BRAVE_API_KEY` — 2.000 søgninger/md gratis (kræver kort, men koster 0 kr).
+- **Serper (nemmest — anbefalet):** `SERPER_API_KEY` — 2.500 gratis søgninger, **intet kort**, én nøgle, ingen opsætning. Opret på [serper.dev](https://serper.dev/).
+- **eller Google (intet kort):** `GOOGLE_CSE_KEY` + `GOOGLE_CSE_CX` — 100 søgninger/dag gratis (kræver "søg på hele nettet" slået til).
+- **eller Brave:** `BRAVE_API_KEY` — 2.000 søgninger/md (kræver kort, men koster 0 kr på gratis kreditter).
 
 Redeploy efter du har sat nøglen. Se den korte firma-vejledning i **[DEPLOY.md](DEPLOY.md)**.
 
