@@ -17,10 +17,15 @@ afsnit om hvorfor sagen kræver juridisk handling.
 Hvert firma kører sin egen kopi med sin egen gratis søge-nøgle → ingen delt grænse. Send dem `DEPLOY.md`
 og denne knap:
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/augustbarrettvang-debug/varemaerke-vagt&env=BRAVE_API_KEY&envDescription=Gratis%20Brave%20Search%20token&envLink=https://brave.com/search/api/)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/augustbarrettvang-debug/varemaerke-vagt)
 
-Firmaet klikker → logger ind på Vercel → indsætter sin egen gratis `BRAVE_API_KEY` → har sit eget link på ~1 min.
-Se den korte firma-vejledning i **[DEPLOY.md](DEPLOY.md)**.
+Firmaet klikker → logger ind på Vercel → har sit eget link på ~1 min (kører i gratis **demo-tilstand** med det samme).
+Bagefter tilføjer man sin egen gratis søge-nøgle under **Settings → Environment Variables** for live-søgning:
+
+- **Google (intet kort):** `GOOGLE_CSE_KEY` + `GOOGLE_CSE_CX` — se opskrift nedenfor. 100 søgninger/dag gratis.
+- **eller Brave:** `BRAVE_API_KEY` — 2.000 søgninger/md gratis (kræver kort, men koster 0 kr).
+
+Redeploy efter du har sat nøglen. Se den korte firma-vejledning i **[DEPLOY.md](DEPLOY.md)**.
 
 ---
 
