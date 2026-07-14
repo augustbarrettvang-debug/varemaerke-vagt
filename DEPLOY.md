@@ -26,7 +26,7 @@ Klik på **Deploy**-knappen herunder (eller i det link I har fået):
 
 ## 3) Brug det
 
-Åbn jeres link → skriv jeres **varemærke** (evt. med model) og en **normalpris** →
+Åbn jeres link → skriv jeres **varemærke** (evt. med model) →
 tryk **Scan nettet**. I får en rapport med antal fund, tabt omsætning, en liste over
 kopi-shops og et afsnit om, hvorfor det kræver juridisk handling.
 

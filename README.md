@@ -39,7 +39,7 @@ varemaerke-vagt/
 └─ vercel.json
 ```
 
-Dashboardet kalder `/api/scan-ip?type=begge|varemaerke|ophavsret&brand=…&msrp=…`.
+Dashboardet kalder `/api/scan-ip?type=begge|varemaerke|ophavsret&brand=…`.
 
 ---
 
@@ -90,7 +90,7 @@ Alternativt i browseren: **Vercel → projekt → Settings → Environment Varia
 
 ### 4) Del linket
 Send `https://dit-projekt.vercel.app` til klienten. De skriver deres mærke ind og får rapporten med antal
-kopier + muligt tabt omsætning. Skriv evt. en **normalpris** i feltet for et præcist omsætnings-estimat.
+kopier + muligt tabt omsætning. Referenceprisen beregnes automatisk ud fra de fundne priser.
 
 > **Uden nøgle** kører værktøjet i **gratis DEMO-tilstand**: det viser en realistisk eksempel-rapport
 > (tydeligt mærket "DEMO · EKSEMPELDATA") så man straks ser hvordan det virker. Tilføj en gratis søge-nøgle
