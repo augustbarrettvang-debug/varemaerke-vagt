@@ -114,20 +114,23 @@ async function fetchText(url, headers){
   catch{ return null; } finally{ clearTimeout(t); }
 }
 
+// Sidste diagnose fra søge-API'et (til ?debug=1) — fx "Serper HTTP 401" hvis nøglen er ugyldig.
+let LAST_DIAG = null;
+
 // --- Serper.dev (Google-resultater som JSON — NEMMEST: 2.500 gratis, intet kort, én nøgle). ---
 async function serperSearch(q, key){
   const ctrl=new AbortController(); const t=setTimeout(()=>ctrl.abort(),9000);
   try{
     const r=await fetch("https://google.serper.dev/search",{ method:"POST",
       headers:{ "X-API-KEY":key, "Content-Type":"application/json" },
-      body:JSON.stringify({ q, gl:"dk", hl:"da", num:15 }), signal:ctrl.signal });
-    if(!r.ok) return [];
+      body:JSON.stringify({ q, gl:"dk", hl:"da", num:20 }), signal:ctrl.signal });
+    if(!r.ok){ LAST_DIAG = "Serper HTTP "+r.status; return []; }
     const j=await r.json();
     const res=(j && j.organic) || [];
     return res.map(it=>({ title:decodeEntities(stripTags(it.title||"")), snippet:decodeEntities(stripTags(it.snippet||"")),
       link:it.link, platform:domainOf(it.link||""), extracted_price:null, price:null, thumbnail:it.imageUrl||null }))
       .filter(x=>x.title && /^https?:\/\//.test(x.link||""));
-  } catch { return []; } finally { clearTimeout(t); }
+  } catch(e){ LAST_DIAG = "Serper fejl: "+(e.message||e); return []; } finally { clearTimeout(t); }
 }
 // --- Brave Search API (gratis: 2000/md). Én nøgle. ---
 async function braveSearch(q, key){
@@ -183,16 +186,18 @@ async function runQuery(provs, q){
 }
 
 // Byg søgninger afhængigt af hvilken krænkelsestype der scannes for.
-function buildQueries(brand, excl, type){
+// Ingen -site:-udelukkelser i selve forespørgslen — vi filtrerer markedspladser fra i koden
+// bagefter (isExcluded). Det giver langt flere fund at score på.
+function buildQueries(brand, type){
   const tm = [
-    `${brand} replica ${excl}`,
-    `${brand} kopi ${excl}`,
-    `${brand} (fake OR imitation OR dupe) ${excl}`,
+    `${brand} replica`,
+    `${brand} kopi`,
+    `${brand} (fake OR imitation OR dupe OR knockoff OR replika)`,
   ];
   const cr = [
-    `${brand} reproduktion ${excl}`,
-    `${brand} (reproduction OR "inspired by" OR "i stil af") ${excl}`,
-    `${brand} (repro OR homage OR efterligning) billig ${excl}`,
+    `${brand} reproduktion`,
+    `${brand} (reproduction OR "inspired by" OR "i stil af")`,
+    `${brand} (repro OR homage OR efterligning) billig`,
   ];
   if(type==="varemaerke") return tm;
   if(type==="ophavsret")  return cr;
@@ -293,22 +298,30 @@ module.exports = async (req, res) => {
     return;
   }
 
-  const excl = EXCLUDE_SITES.map(s=>"-site:"+s).join(" ");
   const N = Math.min(6, Math.max(1, parseInt(process.env.SCAN_QUERIES,10)||3));
-  const queries = buildQueries(brand, excl, type).slice(0, N);
+  const queries = buildQueries(brand, type).slice(0, N);
+  const wantDebug = req.query.debug != null;
+  LAST_DIAG = null;
 
   try {
     const settled = await Promise.allSettled(queries.map(q=>runQuery(provs, q)));
-    let listings = [];
-    settled.forEach(s=>{ if(s.status==="fulfilled") listings = listings.concat(s.value); });
+    let raw = [];
+    settled.forEach(s=>{ if(s.status==="fulfilled") raw = raw.concat(s.value); });
+    const rawCount = raw.length;
 
-    listings = listings.filter(l => l.platform && !isExcluded(l.platform));
+    let listings = raw.filter(l => l.platform && !isExcluded(l.platform));
+    const afterExclude = listings.length;
     const seen = new Set();
     listings = listings.filter(l=>{ const k=(l.platform+"|"+(l.title||"").slice(0,50)).toLowerCase(); if(seen.has(k)) return false; seen.add(k); return true; });
 
+    const dbg = wantDebug ? { provider, queries, rawCount, afterExclude, afterDedup:listings.length,
+      serperDiag:LAST_DIAG, samplePlatforms:[...new Set(raw.map(l=>l.platform))].slice(0,15) } : undefined;
+
     if(listings.length === 0){
-      res.status(200).json({ brand, type, empty:true, provider,
-        message:"Ingen uafhængige kopi-shops fundet lige nu. Prøv igen eller med model-/værknavn (fx 'Flowerpot VP7')." });
+      res.status(200).json({ brand, type, empty:true, provider, _debug:dbg,
+        message: rawCount===0
+          ? ("Søge-API'en returnerede ingen resultater"+(LAST_DIAG?" ("+LAST_DIAG+")":"")+". Tjek at SERPER_API_KEY er gyldig og har kredit tilbage.")
+          : "Ingen uafhængige kopi-shops fundet lige nu. Prøv igen eller med model-/værknavn (fx 'Flowerpot VP7')." });
       return;
     }
 
@@ -316,6 +329,7 @@ module.exports = async (req, res) => {
     const ref = msrp || (priced.length ? priced[Math.floor(priced.length/2)] : null);
 
     const payload = buildReport(listings, { brand, type, ref, provider, demo:false });
+    if(dbg) payload._debug = dbg;
     cacheSet(cacheKey, payload);
     res.status(200).json(payload);
   } catch(e){
