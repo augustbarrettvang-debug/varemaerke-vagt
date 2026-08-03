@@ -82,6 +82,11 @@ function scoreListing(l, ref, tokens){
   // --- Fælles signaler (tæller for begge) ---
   let shared = 0; const sreasons = [];
   if(SUS_TLD.test(dom)){ shared += 20; sreasons.push("Anonymt/højrisiko-domæne"); }
+  // Selverklæret kopi-shop: kopi-ord i selve domænenavnet er et meget stærkt signal
+  // (fx replica-lights.com, designrepro.store, kopi-moebler.dk).
+  const DOM_COPY = ["replica","replika","kopi","kopior","copy","repro","dupe","fake","imitation","knockoff","lookalike","efterligning"];
+  const domHits = [...new Set(DOM_COPY.filter(w=>dom.includes(w)))];
+  if(domHits.length){ shared += 34; sreasons.push('Kopi-ord i selve domænenavnet: "'+domHits.slice(0,2).join('", "')+'"'); }
   if(ref && l.extracted_price){
     const r = l.extracted_price / ref;
     if(r < 0.30){ shared += 30; sreasons.push("Ekstremt lav pris (" + Math.round(r*100) + "%)"); }
@@ -247,6 +252,17 @@ function buildReport(rawListings, { brand, type, ref, provider, demo }){
   };
 }
 
+// Neutral pladsholder-flise til demo-rækker (bevidst IKKE et falsk produktfoto).
+function demoThumb(i){
+  const h=(i*47)%360;
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64">`+
+    `<rect width="64" height="64" fill="hsl(${h},22%,88%)"/>`+
+    `<circle cx="32" cy="26" r="13" fill="hsl(${h},26%,74%)"/>`+
+    `<rect x="30" y="34" width="4" height="16" fill="hsl(${h},26%,74%)"/>`+
+    `<rect x="20" y="50" width="24" height="4" rx="2" fill="hsl(${h},26%,74%)"/></svg>`;
+  return "data:image/svg+xml;utf8,"+encodeURIComponent(svg);
+}
+
 // Realistiske EKSEMPEL-fund til demo-tilstand (ingen søge-nøgle). Bruger det indtastede navn,
 // så rapporten ser skræddersyet ud. Tydeligt mærket "DEMO" i frontenden — ikke rigtige resultater.
 function demoListings(brand, type){
@@ -268,7 +284,7 @@ function demoListings(brand, type){
   let picks = type==="varemaerke" ? tm.concat(legit)
             : type==="ophavsret"  ? cr.concat(legit)
             : tm.concat(cr, legit);
-  return picks.map(x=>Object.assign({ snippet:"", link:"https://"+x.platform+"/produkt", thumbnail:null }, x));
+  return picks.map((x,i)=>Object.assign({ snippet:"", link:"https://"+x.platform+"/produkt", thumbnail:demoThumb(i) }, x));
 }
 
 module.exports = async (req, res) => {
