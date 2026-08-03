@@ -207,6 +207,31 @@
 function esc(s){return(s||"").replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 function fmt(n){return (n==null?"–":Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,"."));}
 function mio(n){return (n/1e6).toLocaleString("da-DK",{minimumFractionDigits:1,maximumFractionDigits:1});}
+const ipIcon=t=>t==="OPHAVSRET"?"©️":t==="BEGGE"?"⚠️":"®️";
+function rowHtml(l){return `<tr>
+    <td><div class="listing">
+      ${l.thumbnail?`<img class="thumb" src="${esc(l.thumbnail)}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'thumb',textContent:'${ipIcon(l.ipType)}'}))">`:`<div class="thumb">${ipIcon(l.ipType)}</div>`}
+      <div><div class="lt"><a href="${esc(l.link)}" target="_blank" rel="noopener noreferrer">${esc(l.title)}</a></div>
+      ${l.reasons&&l.reasons.length?`<div class="reasons">${esc(l.reasons.join(" · "))}</div>`:``}</div>
+    </div></td>
+    <td><a href="${esc(l.link)}" target="_blank" rel="noopener noreferrer" style="color:var(--brand);text-decoration:none">${esc(l.platform||"–")} ↗</a><div class="lm">${esc(l.region||"")}</div></td>
+    <td>${l.ipType?`<span class="iptype ${l.ipType}">${l.ipType}</span>`:"–"}</td>
+    <td>${l.price?`<span class="${l.verdict==='KRÆNKELSE'?'price-bad':''}">${esc(l.price)}</span>`:"–"}</td>
+    <td><span class="badge ${l.verdict}">${l.verdict} ${l.prob}%</span></td>
+  </tr>`;}
+
+function toggleLegit(btn){
+  const tb=document.getElementById("suspectRows"); const list=window.__legitRows||[];
+  if(!tb||!list.length) return;
+  if(btn.dataset.shown==="1"){
+    tb.querySelectorAll("tr[data-legit]").forEach(tr=>tr.remove());
+    btn.dataset.shown=""; btn.textContent="Vis dem";
+  } else {
+    tb.insertAdjacentHTML("beforeend", list.map(l=>rowHtml(l).replace("<tr>",'<tr data-legit="1">')).join(""));
+    btn.dataset.shown="1"; btn.textContent="Skjul dem";
+  }
+}
+
 function animateCounts(root){
   (root||document).querySelectorAll("[data-count]").forEach(el=>{
     const to=parseFloat(el.dataset.count); if(isNaN(to))return;
@@ -280,19 +305,12 @@ function render(d){
   const total=c.total, infr=c.infringing, unc=c.uncertain, legal=c.legal;
   const infrPct=total?Math.round(infr/total*100):0, uncPct=total?Math.round(unc/total*100):0, legalPct=Math.max(0,100-infrPct-uncPct);
   const platMax=d.platforms.length?d.platforms[0].count:1;
-  const ipIcon=t=>t==="OPHAVSRET"?"©️":t==="BEGGE"?"⚠️":"®️";
 
-  const rows=d.listings.map(l=>`<tr>
-    <td><div class="listing">
-      ${l.thumbnail?`<img class="thumb" src="${esc(l.thumbnail)}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'thumb',textContent:'${ipIcon(l.ipType)}'}))">`:`<div class="thumb">${ipIcon(l.ipType)}</div>`}
-      <div><div class="lt"><a href="${esc(l.link)}" target="_blank" rel="noopener noreferrer">${esc(l.title)}</a></div>
-      ${l.reasons&&l.reasons.length?`<div class="reasons">${esc(l.reasons.join(" · "))}</div>`:``}</div>
-    </div></td>
-    <td>${esc(l.platform||"–")}<div class="lm">${esc(l.region||"")}</div></td>
-    <td>${l.ipType?`<span class="iptype ${l.ipType}">${l.ipType}</span>`:"–"}</td>
-    <td>${l.price?`<span class="${l.verdict==='KRÆNKELSE'?'price-bad':''}">${esc(l.price)}</span>`:"–"}</td>
-    <td><span class="badge ${l.verdict}">${l.verdict} ${l.prob}%</span></td>
-  </tr>`).join("");
+  // Rapporten fokuserer på de mistænkelige fund; lovlige forhandlere kan foldes ud.
+  const suspects=d.listings.filter(l=>l.verdict!=="LOVLIG");
+  const legits=d.listings.filter(l=>l.verdict==="LOVLIG");
+  window.__legitRows=legits;
+  const rows=suspects.map(rowHtml).join("");
 
   document.getElementById("dash").style.display="block";
   document.getElementById("foot").style.display="block";
@@ -322,8 +340,8 @@ function render(d){
       <div class="hicon">$</div>
     </div>
     <div class="kpis">
-      <div class="kpi"><div class="n red" data-count="${total}"></div><div class="l">Fund i alt</div><div class="s">annoncer scannet</div></div>
-      <div class="kpi"><div class="n red" data-count="${infr}"></div><div class="l">Mulige krænkelser</div><div class="s">${splitSub}</div></div>
+      <div class="kpi"><div class="n blue" data-count="${total}"></div><div class="l">Sider gennemgået</div><div class="s">på tværs af nettet</div></div>
+      <div class="kpi"><div class="n red" data-count="${d.infringing}"></div><div class="l">Mistænkelige fund</div><div class="s">${fmt(infr)} klare krænkelser + ${fmt(unc)} usikre</div></div>
       <div class="kpi"><div class="n amber">${d.avgUndercut!=null?`<span data-count="${d.avgUndercut}" data-suf="%"></span>`:"–"}</div><div class="l">Gns. prisunderbud</div><div class="s">under markedsprisen</div></div>
       <div class="kpi"><div class="n blue" data-count="${d.platforms.length}"></div><div class="l">Platforme</div><div class="s">hvor kopier optræder</div></div>
     </div>
@@ -349,11 +367,15 @@ function render(d){
       </div>
     </div>
 
-    <div class="section-title">Fundne annoncer (mest mistænkelige først)</div>
-    <div class="tbl-wrap"><table>
+    <div class="section-title">Mistænkelige fund (mest alvorlige først)</div>
+    ${suspects.length? `<div class="tbl-wrap"><table>
       <thead><tr><th>Annonce</th><th>Platform</th><th>Type</th><th>Pris</th><th>Vurdering</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table></div>
+      <tbody id="suspectRows">${rows}</tbody>
+    </table></div>`
+    : `<div class="note live" style="display:flex">Ingen mistænkelige fund i denne scanning — alle ${fmt(legits.length)} sider ser ud til at være lovlige forhandlere.</div>`}
+    ${legits.length? `<p class="hint" style="text-align:center">
+      ${fmt(legits.length)} sider vurderet som <strong>lovlige forhandlere</strong> er skjult, så rapporten er fokuseret.
+      <button class="btn ghost" style="margin-left:8px" onclick="toggleLegit(this)">Vis dem</button></p>`:``}
 
     <div class="section-title">Med vs. uden beskyttelse</div>
     <div class="vs">

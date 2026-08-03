@@ -123,13 +123,16 @@ async function fetchText(url, headers){
 let LAST_DIAG = null;
 
 // --- Serper.dev (Google-resultater som JSON — NEMMEST: 2.500 gratis, intet kort, én nøgle). ---
-async function serperSearch(q, key){
-  const ctrl=new AbortController(); const t=setTimeout(()=>ctrl.abort(),9000);
+async function serperSearch(q, key, gl){
+  const ctrl=new AbortController(); const t=setTimeout(()=>ctrl.abort(),12000);
   try{
+    // num:100 er samme pris som num:20 hos Serper — flere resultater pr. søgning = flere fund.
+    const loc = gl==="global" ? { gl:"us", hl:"en" } : { gl:"dk", hl:"da" };
     const r=await fetch("https://google.serper.dev/search",{ method:"POST",
       headers:{ "X-API-KEY":key, "Content-Type":"application/json" },
-      body:JSON.stringify({ q, gl:"dk", hl:"da", num:20 }), signal:ctrl.signal });
-    if(!r.ok){ LAST_DIAG = "Serper HTTP "+r.status; return []; }
+      body:JSON.stringify(Object.assign({ q, num:100 }, loc)), signal:ctrl.signal });
+    if(!r.ok){ let body=""; try{ body=(await r.text()).slice(0,160); }catch{}
+      LAST_DIAG = "Serper HTTP "+r.status+" ["+q.slice(0,40)+"] "+body; return []; }
     const j=await r.json();
     const res=(j && j.organic) || [];
     return res.map(it=>({ title:decodeEntities(stripTags(it.title||"")), snippet:decodeEntities(stripTags(it.snippet||"")),
@@ -178,36 +181,51 @@ function providers(){
   if(process.env.GOOGLE_CSE_KEY && process.env.GOOGLE_CSE_CX) p.push("Google");
   return p;
 }
-async function runOne(provider, q){
-  if(provider==="Serper") return serperSearch(q, process.env.SERPER_API_KEY);
+// item kan være en streng eller {q, gl:"dk"|"global"}
+async function runOne(provider, item){
+  const q = typeof item==="string" ? item : item.q;
+  const gl = typeof item==="string" ? "dk" : (item.gl||"dk");
+  if(provider==="Serper") return serperSearch(q, process.env.SERPER_API_KEY, gl);
   if(provider==="Brave") return braveSearch(q, process.env.BRAVE_API_KEY);
   if(provider==="Google") return googleSearch(q, process.env.GOOGLE_CSE_KEY, process.env.GOOGLE_CSE_CX);
   return ddgHtml(q); // nøglefri fallback
 }
-async function runQuery(provs, q){
+async function runQuery(provs, item){
   const list = provs.length ? provs : [null];
-  for(const p of list){ try { const r=await runOne(p,q); if(r && r.length) return r; } catch {} }
+  for(const p of list){ try { const r=await runOne(p,item); if(r && r.length) return r; } catch {} }
   return [];
 }
 
 // Byg søgninger afhængigt af hvilken krænkelsestype der scannes for.
 // Ingen -site:-udelukkelser i selve forespørgslen — vi filtrerer markedspladser fra i koden
 // bagefter (isExcluded). Det giver langt flere fund at score på.
+// VIGTIGT: Serpers gratis-plan afviser avancerede mønstre (OR, citationstegn, site:) med
+// HTTP 400 "Query pattern not allowed for free accounts". Alle forespørgsler holdes derfor
+// simple — kun almindelige ord. Flere simple søgninger giver flere fund end få avancerede.
 function buildQueries(brand, type){
+  const b = brand;
+  // Varemærke-spor: falske mærkevarer.
   const tm = [
-    `${brand} replica`,
-    `${brand} kopi`,
-    `${brand} (fake OR imitation OR dupe OR knockoff OR replika)`,
+    { q:`${b} replica`,        gl:"global" },
+    { q:`${b} kopi`,           gl:"dk" },
+    { q:`${b} fake`,           gl:"global" },
+    { q:`${b} dupe`,           gl:"global" },
+    { q:`${b} imitation`,      gl:"global" },
+    { q:`${b} billig kopi`,    gl:"dk" },
   ];
+  // Ophavsret-spor: ulovlig reproduktion af designværk/brugskunst.
   const cr = [
-    `${brand} reproduktion`,
-    `${brand} (reproduction OR "inspired by" OR "i stil af")`,
-    `${brand} (repro OR homage OR efterligning) billig`,
+    { q:`${b} reproduktion`,        gl:"dk" },
+    { q:`${b} reproduction`,        gl:"global" },
+    { q:`${b} replica buy online`,  gl:"global" },
+    { q:`${b} efterligning`,        gl:"dk" },
+    { q:`${b} inspired by design`,  gl:"global" },
+    { q:`${b} style copy cheap`,    gl:"global" },
   ];
   if(type==="varemaerke") return tm;
   if(type==="ophavsret")  return cr;
-  // "begge" (standard): bland de stærkeste fra hver.
-  return [tm[0], cr[0], tm[2], cr[1], tm[1], cr[2]];
+  // "begge" (standard): flet sporene, stærkeste først.
+  return [tm[0], cr[0], tm[2], cr[1], tm[3], cr[2], tm[1], cr[3], tm[4], cr[4], tm[5], cr[5]];
 }
 
 // Enkel cache i hukommelsen (6 t) — samme mærke igen koster 0 søgninger så længe instansen lever.
@@ -221,7 +239,7 @@ function buildReport(rawListings, { brand, type, ref, provider, demo }){
   let listings = rawListings.slice();
   listings.forEach(l=>{ const v=scoreListing(l, ref, tokens); l.prob=v.prob; l.verdict=v.verdict; l.reasons=v.reasons; l.ipType=v.ipType; l.region=regionOf(l.platform); });
   listings.sort((a,b)=>b.prob-a.prob);
-  listings = listings.slice(0, 60);
+  listings = listings.slice(0, 150);
 
   const infr = listings.filter(l=>l.verdict==="KRÆNKELSE").length;
   const unc  = listings.filter(l=>l.verdict==="USIKKER").length;
@@ -314,7 +332,7 @@ module.exports = async (req, res) => {
     return;
   }
 
-  const N = Math.min(6, Math.max(1, parseInt(process.env.SCAN_QUERIES,10)||3));
+  const N = Math.min(12, Math.max(1, parseInt(process.env.SCAN_QUERIES,10)||8));
   const queries = buildQueries(brand, type).slice(0, N);
   const wantDebug = req.query.debug != null;
   LAST_DIAG = null;
