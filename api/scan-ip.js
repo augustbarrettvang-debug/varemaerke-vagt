@@ -60,6 +60,38 @@ function decodeEntities(s){
 }
 function num(x){ if(x==null) return null; const p=parseFloat((""+x).replace(/[^\d.,]/g,"").replace(/\.(?=\d{3}\b)/g,"").replace(",",".")); return isFinite(p)&&p>0?p:null; }
 
+// Vekselkurser til DKK (grove, kun til sammenligning af størrelsesorden).
+const FX = { DKK:1, SEK:0.70, NOK:0.66, EUR:7.46, USD:6.90, GBP:8.75 };
+// Finder en pris i fri tekst: "1.799 kr", "kr. 1.799", "DKK 1799", "€199", "$249,00", "1 799 SEK".
+function extractPriceFromText(text){
+  if(!text) return null;
+  const t = " " + text.replace(/ /g," ") + " ";
+  const pats = [
+    { re:/(?:kr\.?|DKK)\s*([\d][\d .]{1,9}(?:,\d{2})?)/ig, cur:"DKK" },
+    { re:/([\d][\d .]{1,9}(?:,\d{2})?)\s*(?:kr\.?|DKK)\b/ig, cur:"DKK" },
+    { re:/€\s*([\d][\d .]{1,9}(?:[.,]\d{2})?)/ig,          cur:"EUR" },
+    { re:/([\d][\d .]{1,9}(?:[.,]\d{2})?)\s*(?:EUR|euro)\b/ig, cur:"EUR" },
+    { re:/\$\s*([\d][\d ,]{1,9}(?:\.\d{2})?)/ig,           cur:"USD" },
+    { re:/([\d][\d .]{1,9}(?:,\d{2})?)\s*(?:SEK|NOK|GBP)\b/ig, cur:"SEK" },
+    { re:/£\s*([\d][\d ,]{1,9}(?:\.\d{2})?)/ig,            cur:"GBP" },
+  ];
+  const found=[];
+  for(const p of pats){
+    let m; p.re.lastIndex=0;
+    while((m=p.re.exec(t))){
+      let raw=m[1].replace(/\s/g,"");
+      // dansk format: 1.799,00 → punktum er tusindsep., komma er decimal
+      if(/,\d{2}$/.test(raw)) raw=raw.replace(/\./g,"").replace(",",".");
+      else raw=raw.replace(/[.,](?=\d{3}\b)/g,"");
+      const v=parseFloat(raw);
+      if(isFinite(v) && v>=20 && v<=500000) found.push(Math.round(v*(FX[p.cur]||1)));
+    }
+  }
+  if(!found.length) return null;
+  found.sort((a,b)=>a-b);
+  return found[Math.floor(found.length/2)]; // median af de priser der optræder i teksten
+}
+
 // Scorer ét fund for BEGGE krænkelsestyper og vælger den mest sandsynlige.
 function scoreListing(l, ref, tokens){
   const t = ((l.title||"") + " " + (l.snippet||"")).toLowerCase();
@@ -123,6 +155,27 @@ async function fetchText(url, headers){
 let LAST_DIAG = null;
 
 // --- Serper.dev (Google-resultater som JSON — NEMMEST: 2.500 gratis, intet kort, én nøgle). ---
+// Finder produktets normalpris automatisk via Google Shopping (rigtige butikspriser).
+// Bruger medianen af de dyreste ~60% for at ramme markedsprisen, ikke kopivarernes lave priser.
+async function serperShoppingPrice(brand, key){
+  const ctrl=new AbortController(); const t=setTimeout(()=>ctrl.abort(),10000);
+  try{
+    const r=await fetch("https://google.serper.dev/shopping",{ method:"POST",
+      headers:{ "X-API-KEY":key, "Content-Type":"application/json" },
+      body:JSON.stringify({ q:brand, gl:"dk", hl:"da", num:40 }), signal:ctrl.signal });
+    if(!r.ok){ let b=""; try{ b=(await r.text()).slice(0,120);}catch{} LAST_DIAG=(LAST_DIAG||"")+" | Shopping HTTP "+r.status+" "+b; return null; }
+    const j=await r.json();
+    const items=(j && j.shopping) || [];
+    const prices=items.map(it=>extractPriceFromText(String(it.price||""))||num(it.price)).filter(v=>v&&v>=50);
+    if(!prices.length) return null;
+    prices.sort((a,b)=>a-b);
+    // Kopivarer ligger i den lave ende; markedsprisen findes i den øvre halvdel.
+    const upper=prices.slice(Math.floor(prices.length*0.4));
+    return upper[Math.floor(upper.length/2)] || prices[Math.floor(prices.length/2)];
+  } catch(e){ LAST_DIAG=(LAST_DIAG||"")+" | Shopping fejl: "+(e.message||e); return null; }
+  finally{ clearTimeout(t); }
+}
+
 async function serperSearch(q, key, gl){
   const ctrl=new AbortController(); const t=setTimeout(()=>ctrl.abort(),12000);
   try{
@@ -135,9 +188,14 @@ async function serperSearch(q, key, gl){
       LAST_DIAG = "Serper HTTP "+r.status+" ["+q.slice(0,40)+"] "+body; return []; }
     const j=await r.json();
     const res=(j && j.organic) || [];
-    return res.map(it=>({ title:decodeEntities(stripTags(it.title||"")), snippet:decodeEntities(stripTags(it.snippet||"")),
-      link:it.link, platform:domainOf(it.link||""), extracted_price:null, price:null, thumbnail:it.imageUrl||null }))
-      .filter(x=>x.title && /^https?:\/\//.test(x.link||""));
+    return res.map(it=>{
+      const title=decodeEntities(stripTags(it.title||""));
+      const snippet=decodeEntities(stripTags(it.snippet||""));
+      // Prisen læses automatisk ud af titel/uddrag — brugeren skal ikke selv indtaste noget.
+      const p = extractPriceFromText(title+" "+snippet);
+      return { title, snippet, link:it.link, platform:domainOf(it.link||""),
+        extracted_price:p, price:p?(p.toLocaleString("da-DK")+" kr"):null, thumbnail:it.imageUrl||null };
+    }).filter(x=>x.title && /^https?:\/\//.test(x.link||""));
   } catch(e){ LAST_DIAG = "Serper fejl: "+(e.message||e); return []; } finally { clearTimeout(t); }
 }
 // --- Brave Search API (gratis: 2000/md). Én nøgle. ---
@@ -234,7 +292,7 @@ function cacheGet(k){ const v=CACHE.get(k); if(v && Date.now()-v.t < CACHE_TTL) 
 function cacheSet(k,data){ CACHE.set(k,{t:Date.now(),data}); }
 
 // Scorer + aggregerer en liste af fund til den færdige rapport. Bruges af BÅDE live- og demo-sporet.
-function buildReport(rawListings, { brand, type, ref, provider, demo }){
+function buildReport(rawListings, { brand, type, ref, refSource, provider, demo }){
   const tokens = brandTokens(brand);
   let listings = rawListings.slice();
   listings.forEach(l=>{ const v=scoreListing(l, ref, tokens); l.prob=v.prob; l.verdict=v.verdict; l.reasons=v.reasons; l.ipType=v.ipType; l.region=regionOf(l.platform); });
@@ -260,7 +318,7 @@ function buildReport(rawListings, { brand, type, ref, provider, demo }){
 
   return {
     brand, type, provider: provider||"demo", demo:!!demo, empty:false, scannedAt:new Date().toISOString(),
-    refPrice:ref, avgUndercut, infringing, byType,
+    refPrice:ref, refSource:refSource||null, avgUndercut, infringing, byType,
     lostRevenueLow:lr.low, lostRevenueHigh:lr.high, unitsLow:UNITS_LOW, unitsHigh:UNITS_HIGH,
     counts:{ total:listings.length, infringing:infr, uncertain:unc, legal },
     platforms,
@@ -359,10 +417,33 @@ module.exports = async (req, res) => {
       return;
     }
 
-    const priced = listings.map(l=>l.extracted_price).filter(Boolean).sort((a,b)=>a-b);
-    const ref = msrp || (priced.length ? priced[Math.floor(priced.length/2)] : null);
+    // Referencepris findes AUTOMATISK — brugeren skal ikke indtaste noget.
+    // 1) Google Shopping (rigtige butikspriser)  2) priser læst ud af søgeresultaterne
+    // 3) msrp hvis nogen alligevel har sendt en med.
+    let ref = msrp || null, refSource = msrp ? "angivet" : null;
+    if(!ref && provider==="Serper"){
+      const shopPrice = await serperShoppingPrice(brand, process.env.SERPER_API_KEY);
+      if(shopPrice){ ref = shopPrice; refSource = "Google Shopping"; }
+    }
+    if(!ref){
+      // To-trins: scor først UDEN pris for at finde de lovlige forhandlere, og brug
+      // DERES priser som markedspris. Autoriserede forhandlere har den rigtige pris —
+      // kopi-shopsene ligger lavt og ville ellers trække referencen ned.
+      const tks = brandTokens(brand);
+      const legitPrices = listings
+        .filter(l=>l.extracted_price)
+        .filter(l=>{ const v=scoreListing(l, null, tks); return v.verdict==="LOVLIG"; })
+        .map(l=>l.extracted_price).sort((a,b)=>a-b);
+      if(legitPrices.length>=2){
+        ref = legitPrices[Math.floor(legitPrices.length/2)];
+        refSource = "priser hos lovlige forhandlere";
+      } else {
+        const priced = listings.map(l=>l.extracted_price).filter(Boolean).sort((a,b)=>a-b);
+        if(priced.length){ ref = priced[Math.floor(priced.length/2)]; refSource = "priser fundet i søgeresultaterne"; }
+      }
+    }
 
-    const payload = buildReport(listings, { brand, type, ref, provider, demo:false });
+    const payload = buildReport(listings, { brand, type, ref, refSource, provider, demo:false });
     if(dbg) payload._debug = dbg;
     cacheSet(cacheKey, payload);
     res.status(200).json(payload);
