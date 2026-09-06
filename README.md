@@ -1,118 +1,127 @@
-# IP-Vagt · varemærke- & ophavsrets-scanner
+# Varemærke-Vagt
 
-Et lille webværktøj til brand protection. Man skriver sit **varemærke** eller **designværk** ind
-(fx *Flowerpot VP7*, *PH 5*), vælger om der skal søges efter **varemærke-**, **ophavsrets-** eller
-**begge** slags krænkelser, og værktøjet **søger nettet** for mulige kopivarer, scorer hvert fund
-(lovlig / usikker / krænkelse) — med angivelse af om det ligner en **varemærke-** eller
-**ophavsretskrænkelse** — og viser en **rapport** med antal kopier + muligt tabt omsætning, inkl. et
-afsnit om hvorfor sagen kræver juridisk handling.
+Et værktøj til brand protection. Man skriver sit **varemærke** eller **designværk** ind
+(fx *Flowerpot VP7*, *PH 5*), vælger om der skal søges efter **varemærke-**, **ophavsrets-**
+eller **begge** slags krænkelser, og værktøjet søger det åbne web, vurderer hvert fund og
+samler dem i en rapport der kan printes og lægges i en sag.
 
-**To slags kopier, ét værktøj:**
-- **Varemærke** (varemærkeloven): ulovlig brug af mærke/logo/navn — falske mærkevarer, replica-tasker, kopi-sneakers.
-- **Ophavsret** (ophavsretsloven): ulovlig kopiering af et beskyttet værk — designmøbler & brugskunst
-  (Flowerpot, PH-lamper, Arne Jacobsen-stole), kunst, mønstre, tryk, digitalt indhold.
+**To slags krænkelser, ét værktøj:**
 
-## 🚀 Deploy din egen kopi (til et firma)
+- **Varemærke** (varemærkeloven): ulovlig brug af mærke, logo eller navn — falske mærkevarer,
+  replica-tasker, kopi-sneakers.
+- **Ophavsret** (ophavsretsloven): ulovlig kopiering af et beskyttet værk — designmøbler og
+  brugskunst (Flowerpot, PH-lamper, Arne Jacobsen-stole), kunst, mønstre, tryk, digitalt indhold.
 
-Hvert firma kører sin egen kopi med sin egen gratis søge-nøgle → ingen delt grænse. Send dem `DEPLOY.md`
-og denne knap:
+---
+
+## Sådan vurderes et fund
+
+Motoren er bevidst konservativ, fordi et falskt positivt fund er dyrere end et overset:
+en rapport der udpeger rettighedshaverens egen forhandler er værdiløs foran en advokat.
+
+Tre regler bærer vurderingen:
+
+1. **Et fund skal have mindst to uafhængige signaler** for at blive *usikkert*. At mærkenavnet
+   står i titlen beskriver enhver lovlig forhandler og er derfor ikke i sig selv en mistanke.
+2. **Et eksplicit kopi-ord står alene.** Står "replica" i domænenavnet (`replica-lights.com`)
+   eller i teksten, er det sælgerens egen erklæring.
+3. **Uden et eksplicit kopi-ord bliver et fund aldrig kaldt en krænkelse** — højst *usikkert*.
+   Et anonymt topdomæne og en lav pris er grund til at kigge, ikke til at konkludere.
+
+Signalerne der tælles: kopi-ord i domænenavnet, kopi-ord i titel/uddrag, anonymt eller
+højrisiko-topdomæne, varemærket brugt i domænenavnet, og pris langt under markedsprisen.
+Hvert fund viser hvilke signaler der udløste vurderingen.
+
+**Allowliste.** Kendte rettighedshavere og etablerede forhandlere frikendes uden scoring.
+Den indbyggede liste er et startgrundlag — udvid den med kundens egne autoriserede
+forhandlere via `ALLOWLIST_DOMAINS`. Uden det bliver rettighedshaveren selv scoret som
+mulig krænker.
+
+**Priser.** Tal i et søgeuddrag er sjældent produktets pris. Beløb med "spar", "fra",
+"fragt" eller "pr. md." omkring sig kasseres, og en pris under 5 % af markedsprisen
+behandles som et fejllæst tal, ikke som et prisunderbud.
+
+**Estimatet over tabt omsætning er et skøn**, ikke en måling: antal mistænkelige fund ×
+6–30 solgte kopier pr. shop pr. måned × 12 måneder × markedsprisen. Antagelsen om 6–30
+stk. er ikke målt. Rapporten viser derfor altid regnestykket ved siden af beløbet, og de
+tællelige fakta (antal domæner med kopi-ord osv.) står før estimatet.
+
+---
+
+## Kør din egen kopi
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/augustbarrettvang-debug/varemaerke-vagt)
 
-Firmaet klikker → logger ind på Vercel → har sit eget link på ~1 min (kører i gratis **demo-tilstand** med det samme).
-Bagefter tilføjer man sin egen gratis søge-nøgle under **Settings → Environment Variables** for live-søgning:
+Hvert firma kører sin egen kopi med sin egen gratis søge-nøgle, så ingen deler kvote.
+Uden nøgle starter værktøjet i **demo-tilstand** med tydeligt mærkede eksempeldata.
+Se den korte firma-vejledning i **[DEPLOY.md](DEPLOY.md)**.
 
-- **Serper (nemmest — anbefalet):** `SERPER_API_KEY` — 2.500 gratis søgninger, **intet kort**, én nøgle, ingen opsætning. Opret på [serper.dev](https://serper.dev/).
-- **eller Google (intet kort):** `GOOGLE_CSE_KEY` + `GOOGLE_CSE_CX` — 100 søgninger/dag gratis (kræver "søg på hele nettet" slået til).
-- **eller Brave:** `BRAVE_API_KEY` — 2.000 søgninger/md (kræver kort, men koster 0 kr på gratis kreditter).
+### Søge-nøgle (vælg én)
 
-Redeploy efter du har sat nøglen. Se den korte firma-vejledning i **[DEPLOY.md](DEPLOY.md)**.
+Nøglen bor på serveren — klienterne rører den aldrig.
+
+| Variabel | Udbyder | Gratis niveau |
+|---|---|---|
+| `SERPER_API_KEY` | [serper.dev](https://serper.dev/) — **anbefalet** | 2.500 søgninger, intet kort |
+| `GOOGLE_CSE_KEY` + `GOOGLE_CSE_CX` | [Google Programmable Search](https://programmablesearchengine.google.com/) | 100 søgninger/dag |
+| `BRAVE_API_KEY` | [Brave Search API](https://brave.com/search/api/) | 2.000 søgninger/md |
+
+Kun Serper slår markedsprisen op via Google Shopping. Med de øvrige udledes markedsprisen
+af priserne i søgeresultaterne.
+
+### Øvrige indstillinger
+
+| Variabel | Standard | Hvad den gør |
+|---|---|---|
+| `ALLOWLIST_DOMAINS` | – | Kommasepareret liste af domæner der altid er lovlige. **Sæt denne.** |
+| `SCAN_QUERIES` | `8` | Søgninger pr. scanning (1–12). Færre = længere kvote, færre fund. |
+| `RATE_LIMIT_PER_HOUR` | `5` | Scanninger pr. IP pr. time. |
+| `DAILY_SCAN_BUDGET` | `60` | Samlet loft pr. dag, så kvoten ikke kan tømmes. |
+| `ALLOWED_ORIGIN` | – | Tillad kald fra denne oprindelse. Uden den: kun samme oprindelse. |
+| `DEBUG_TOKEN` | – | Kald `?debug=<token>` for diagnose. Uden token er debug slået fra. |
+| `KV_REST_API_URL` + `KV_REST_API_TOKEN` | – | Upstash/Vercel KV til cache og rate limiting på tværs af instanser. |
+
+**Om rate limiting uden KV:** serverless-instanser deler ikke hukommelse og genstarter
+konstant, så uden KV er både cachen og grænserne kun vejledende. Endepunktet er offentligt
+og bruger en kvoteret nøgle — med Serpers 2.500 gratis søgninger og 8 søgninger pr. scanning
+rækker kvoten til ca. 310 scanninger i alt. Sæt KV op hvis linket deles bredt.
 
 ---
+
+## Filer
 
 ```
 varemaerke-vagt/
-├─ public/index.html   ← frontend (dashboardet klienten ser, med type-vælger)
-├─ api/scan-ip.js      ← backend (aktiv): scorer fund for BÅDE varemærke og ophavsret
-├─ api/scan.js         ← ældre backend: kun varemærke (bevaret for bagudkompatibilitet)
-├─ package.json
-└─ vercel.json
+├─ public/index.html    ← rapportvisningen
+├─ api/scan-ip.js       ← handler: søgning, budget, svar
+├─ api/_scoring.js      ← vurderingsmotoren (al scoring og aggregering)
+├─ api/_store.js        ← cache + rate limiting (Upstash/KV, ellers hukommelse)
+└─ test/scoring.test.js ← tests for scoringen
 ```
 
-Dashboardet kalder `/api/scan-ip?type=begge|varemaerke|ophavsret&brand=…`.
+Frontenden kalder `/api/scan-ip?type=begge|varemaerke|ophavsret&brand=…`.
+Markedsprisen findes automatisk og kan ikke sættes udefra.
 
 ---
 
-## Hvorfor en server (og ikke bare en fil)?
+## Udvikling
 
-En browser må ikke selv hente resultater fra Google/AliExpress (blokeres af CORS), og en søgning
-kræver en **søge-API med en hemmelig nøgle**. Nøglen skal ligge på en server — **aldrig** i en fil du
-mailer ud, ellers kan modtageren bruge løs af din regning. Derfor: deploy én gang, del linket.
-
----
-
-## Sådan deployer du (ca. 10 min, gratis niveau)
-
-### 1) Skaf en GRATIS søge-nøgle (vælg én)
-Nøglen bor på serveren — **dine klienter/modtagere rører den aldrig**; de skriver bare mærket ind.
-
-- **Brave Search (nemmest — anbefalet):** [brave.com/search/api](https://brave.com/search/api/) → opret gratis konto → kopiér din **Subscription Token**. Gratis niveau: **2.000 søgninger/md**. Kun én nøgle.
-- **eller Google Programmable Search:** opret en [API-nøgle](https://developers.google.com/custom-search/v1/introduction) + en [søgemaskine (cx)](https://programmablesearchengine.google.com/) sat til "søg hele nettet". Gratis niveau: **100 søgninger/dag**.
-
-Hver scanning bruger som standard **3 søgninger** (justér med `SCAN_QUERIES`, 1–6).
-
-**Kapacitet & hvordan man strækker gratis niveauet:**
-- Sæt `SCAN_QUERIES=1` → 1 søgning/scan → **op til ~2.000 (Brave) / ~3.000 (Google) scanninger/md gratis** (færre resultater pr. scan).
-- **Cache:** samme mærke scannet igen inden for 6 timer koster 0 søgninger.
-- Sæt **begge** nøgler (Brave + Google) → de gratis niveauer lægges sammen (~5.000/md).
-- Skal det bruges i stor skala: betalt niveau er billigt (~5–20 kr pr. 1.000 søgninger). Eller lad **hver virksomhed hoste sin egen kopi med sin egen gratis nøgle** → hver får sit eget frie forbrug.
-
-### 2) Læg projektet på Vercel
 ```bash
-npm i -g vercel          # hvis du ikke har den
-cd varemaerke-vagt
-vercel                   # følg guiden → giver et *.vercel.app link
+npm test        # node --test
+vercel dev      # frontend + API på http://localhost:3000
 ```
-
-### 3) Sæt søge-nøglen som miljøvariabel
-**Brave:**
-```bash
-vercel env add BRAVE_API_KEY      # indsæt din Subscription Token (vælg Production)
-vercel --prod
-```
-**eller Google:**
-```bash
-vercel env add GOOGLE_CSE_KEY     # din API-nøgle
-vercel env add GOOGLE_CSE_CX      # din søgemaskine-id (cx)
-vercel --prod
-```
-Alternativt i browseren: **Vercel → projekt → Settings → Environment Variables**, og redeploy.
-
-### 4) Del linket
-Send `https://dit-projekt.vercel.app` til klienten. De skriver deres mærke ind og får rapporten med antal
-kopier + muligt tabt omsætning. Referenceprisen beregnes automatisk ud fra de fundne priser.
-
-> **Uden nøgle** kører værktøjet i **gratis DEMO-tilstand**: det viser en realistisk eksempel-rapport
-> (tydeligt mærket "DEMO · EKSEMPELDATA") så man straks ser hvordan det virker. Tilføj en gratis søge-nøgle
-> for at søge det rigtige web (server-side scraping virker ikke fra Vercel — søgemaskinerne blokerer
-> cloud-IP'er, derfor den gratis søge-nøgle). Alt koster 0 kr på gratis niveau — både demo og live.
 
 ---
 
-## Test lokalt (valgfrit)
-```bash
-vercel dev               # kører frontend + /api/scan lokalt på http://localhost:3000
-```
-(Bruger `SERPAPI_KEY` fra `vercel env pull` eller en lokal `.env`.)
+## Hvorfor en server og ikke bare en HTML-fil
+
+En browser må ikke selv hente søgeresultater (CORS), og en søgning kræver en API-nøgle.
+Nøglen skal ligge på en server — aldrig i en fil man sender ud, ellers kan modtageren
+bruge løs af kvoten.
 
 ---
 
-## Vil du bruge en gratis søge-API i stedet for SerpAPI?
-`api/scan.js` er skrevet til SerpAPI. Google *Programmable Search* (100 gratis/dag) eller Brave Search API
-kan bruges i stedet — det kræver en lille ændring i `serp()`-funktionen. Sig til, så tilpasser jeg det.
+## Ansvar
 
----
-
-## Vigtigt / ansvar
-Rapporten er en **automatisk screening** — et beslutningsstøtte-værktøj, ikke et juridisk bevis.
-Bekræft altid ægthed og krænkelse konkret før der tages retslige skridt.
+Rapporten er en **automatisk screening** — beslutningsstøtte, ikke juridisk bevis.
+Bekræft altid ægthed og krænkelse konkret, før der tages retslige skridt.
