@@ -288,13 +288,6 @@ function buildReport(rawListings, { brand, type, ref, refSource, provider, demo,
     evidence, byType,
     estimate: estimate(infr + unc, ref),
 
-    // Bagudkompatible felter så den nuværende frontend fortsat virker mens
-    // rapportvisningen skrives om. Fjernes sammen med den gamle visning.
-    infringing: infr + unc,
-    lostRevenueLow:  (estimate(infr + unc, ref) || {}).low  ?? null,
-    lostRevenueHigh: (estimate(infr + unc, ref) || {}).high ?? null,
-    unitsLow: UNITS_LOW, unitsHigh: UNITS_HIGH,
-
     counts: { total: listings.length, infringing: infr, uncertain: unc, legal },
     platforms,
     listings: listings.map(l => ({
